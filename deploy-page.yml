@@ -1,0 +1,70 @@
+# .github/workflows/deploy-pages.yml
+name: Deploy Static Site to Pages
+
+on:
+  push:
+    branches: [ main ] # Deploy saat ada push ke main
+  workflow_dispatch:
+
+# Atur izin GITHUB_TOKEN agar Actions bisa deploy ke GitHub Pages
+permissions:
+  contents: read
+  pages: write # Izin untuk deploy ke Pages
+  id-token: write # Izin untuk otentikasi OIDC (diperlukan oleh action deploy)
+
+# Izinkan hanya satu deployment konkuren, batalkan run yang sedang berjalan/menunggu
+# jika ada push baru.
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js # Ganti dengan setup bahasa/framework Anda
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Build static site # Ganti dengan perintah build Anda
+        run: npm run build
+        env: # Contoh set base path jika diperlukan Pages
+          BASE_PATH: /${{ github.event.repository.name }}
+      - name: Setup Pages
+        uses: actions/configure-pages@v3
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v2 # Action khusus untuk Pages
+        with:
+          # Upload direktori hasil build (misalnya 'dist', 'build', '_site')
+          path: './dist' # Sesuaikan dengan direktori output build Anda
+      # Jika tidak menggunakan action configure-pages & upload-pages-artifact:
+      # - name: Upload artifact (cara lama)
+      #   uses: actions/upload-artifact@v3
+      #   with:
+      #     name: github-pages
+      #     path: ./dist
+      #     retention-days: 1
+
+  # Job Deployment
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }} # URL Pages akan jadi output
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v2 # Action resmi untuk deploy Pages
+      # Jika menggunakan cara lama dengan upload-artifact biasa:
+      # - name: Download artifact
+      #   uses: actions/download-artifact@v3
+      #   with:
+      #     name: github-pages
+      # - name: Deploy (Placeholder - perlu skrip/action deploy kustom)
+      #   run: echo "Deploying content..." # Ganti dengan logika deploy Anda

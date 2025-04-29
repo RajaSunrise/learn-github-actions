@@ -1,0 +1,57 @@
+# .github/workflows/manual-trigger.yml
+name: Manual Workflow with Inputs
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_environment:
+        description: 'Deployment Environment'
+        required: true
+        type: choice # Bisa juga: string, boolean, environment
+        options:
+          - staging
+          - production
+      log_level:
+        description: 'Log Level'
+        required: false
+        default: 'info'
+        type: string
+      perform_migration:
+        description: 'Run database migrations?'
+        required: true
+        type: boolean
+        default: false
+
+jobs:
+  manual-task:
+    runs-on: ubuntu-latest
+    # Gunakan environment jika inputnya tipe environment
+    # environment: ${{ github.event.inputs.target_environment }}
+
+    steps:
+      - name: Display Inputs
+        run: |
+          echo "Target Environment: ${{ github.event.inputs.target_environment }}"
+          echo "Log Level: ${{ github.event.inputs.log_level }}"
+          echo "Run Migrations: ${{ github.event.inputs.perform_migration }}"
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Deployment (contoh)
+        if: github.event.inputs.target_environment == 'staging'
+        run: |
+          echo "Deploying to staging..."
+          # ./deploy-staging.sh --log ${{ github.event.inputs.log_level }}
+
+      - name: Run Migrations (kondisional)
+        if: github.event.inputs.perform_migration == 'true'
+        run: |
+          echo "Running migrations for ${{ github.event.inputs.target_environment }}..."
+          # ./run-migrations.sh --env ${{ github.event.inputs.target_environment }}
+
+      - name: Deployment to Production (contoh)
+        if: github.event.inputs.target_environment == 'production'
+        run: |
+          echo "Deploying to PRODUCTION..."
+          # ./deploy-production.sh --log ${{ github.event.inputs.log_level }}

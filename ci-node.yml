@@ -1,0 +1,47 @@
+# .github/workflows/ci-node.yml
+name: Node.js CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [16.x, 18.x, 20.x, 22.x]
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm' # Aktifkan caching untuk npm
+
+    - name: Install dependencies
+      run: npm ci # Lebih cepat dan konsisten daripada 'npm install'
+
+    - name: Run linters
+      run: npm run lint --if-present # Jalankan jika skrip 'lint' ada
+
+    - name: Run tests
+      run: npm test
+
+    # Opsional: Build proyek jika ada skrip build
+    # - name: Build project
+    #   run: npm run build --if-present
+
+    # Opsional: Upload artefak build jika perlu
+    # - name: Upload build artifact
+    #   if: matrix.node-version == '18.x' # Hanya upload dari satu versi Node
+    #   uses: actions/upload-artifact@v3
+    #   with:
+    #     name: build-output-${{ matrix.node-version }}
+    #     path: ./dist # Sesuaikan path ke direktori build Anda

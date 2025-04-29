@@ -1,0 +1,81 @@
+# .github/workflows/sequential-jobs.yml
+name: Sequential Job Execution
+
+on: push
+
+jobs:
+  # Job 1: Build
+  build:
+    runs-on: ubuntu-latest
+    outputs: # Output untuk job berikutnya
+      artifact_name: my-app-${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build application
+        id: build_step # Beri ID pada step jika ingin mereferensikan outputnya di job yg sama
+        run: |
+          echo "Building..."
+          mkdir output
+          echo "Build successful" > output/status.txt
+          echo "artifact_name=my-app-${{ github.sha }}" >> $GITHUB_OUTPUT
+      - name: Archive build output
+        uses: actions/upload-artifact@v3
+        with:
+          # Menggunakan output job, bukan output step karena sudah didefinisikan di job outputs
+          name: ${{ job.outputs.artifact_name }}
+          path: output/
+
+  # Job 2: Test (bergantung pada build)
+  test:
+    runs-on: ubuntu-latest
+    needs: build # Job ini berjalan SETELAH 'build' sukses
+    steps:
+      - name: Download build artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: ${{ needs.build.outputs.artifact_name }} # Gunakan output job 'build'
+          path: ./test-area
+      - name: Run tests on build output
+        run: |
+          echo "Testing artifact..."
+          cat ./test-area/status.txt
+          # Jalankan tes sebenarnya di sini
+          echo "Tests passed!"
+
+  # Job 3: Deploy (bergantung pada test)
+  deploy:
+    runs-on: ubuntu-latest
+    needs: test # Job ini berjalan SETELAH 'test' sukses
+    environment: production # Contoh menggunakan environment
+    if: github.ref == 'refs/heads/main' # Hanya deploy dari branch main
+
+    steps:
+      - name: Download build artifact (lagi, jika diperlukan)
+        uses: actions/download-artifact@v3
+        with:
+          name: ${{ needs.build.outputs.artifact_name }} # Masih bisa akses output 'build'
+          path: ./deploy-files
+      - name: Perform Deployment
+        run: |
+          echo "Deploying artifact from ./deploy-files..."
+          # Logika deploy ke production di sini
+          echo "Deployment successful!"
+
+  # Job 4: Notify (bergantung pada deploy, tapi jalan selalu setelah deploy dicoba)
+  notify:
+    runs-on: ubuntu-latest
+    needs: deploy # Bergantung pada deploy
+    if: always() # Jalankan step ini meskipun 'deploy' gagal (tapi setelah dicoba)
+    steps:
+      - name: Check deploy status and notify
+        run: |
+          # Periksa hasil job 'deploy' dari konteks 'needs'
+          if [ "${{ needs.deploy.result }}" == "success" ]; then
+            echo "Deployment to production SUCCEEDED!"
+            # Kirim notifikasi sukses (misal ke Slack)
+          elif [ "${{ needs.deploy.result }}" == "skipped" ]; then
+             echo "Deployment to production was SKIPPED (misal, karena 'if' tidak terpenuhi)."
+          else
+            echo "Deployment to production FAILED!"
+            # Kirim notifikasi gagal
+          fi

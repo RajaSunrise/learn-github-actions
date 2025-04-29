@@ -1,0 +1,40 @@
+# .github/workflows/cache-dependencies.yml
+name: Cache Example
+
+on: push
+
+jobs:
+  build-with-cache:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      # Cache untuk node_modules
+      - name: Cache Node modules
+        id: cache-node-modules
+        uses: actions/cache@v3
+        with:
+          path: node_modules # Direktori yang akan di-cache
+          # Kunci cache: gunakan hash dari package-lock.json
+          # Jika lock file berubah, cache tidak akan digunakan (cache miss)
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          # Kunci pemulihan: jika kunci utama miss, coba gunakan cache lama
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Install dependencies
+        # Hanya jalankan 'npm ci' jika cache tidak ditemukan (cache miss)
+        if: steps.cache-node-modules.outputs.cache-hit != 'true'
+        run: npm ci
+
+      - name: Show Cache Hit Status
+        run: echo "Cache hit? ${{ steps.cache-node-modules.outputs.cache-hit }}"
+
+      - name: Run build script
+        run: npm run build --if-present
